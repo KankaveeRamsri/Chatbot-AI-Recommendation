@@ -42,7 +42,12 @@ all_questions = [
     {"id": "material", "text": "คุณสนใจวัสดุอะไร? (EVA, ยาง, โฟม, ไม่ระบุ)"},
     {"id": "lifetime", "text": "คุณคาดหวังอายุการใช้งานกี่ปี? (1-2 ปี, 3-5 ปี, มากกว่า 5 ปี)"},
     {"id": "color", "text": "คุณอยากเลือกสีไหม? (เทา, ดำ, ไม่สำคัญ)"},
-    {"id": "value", "text": "คุณอยากได้แบบคุ้มค่าราคา หรือคุณภาพสูงสุด? (คุ้มค่า / คุณภาพสูงสุด)"}
+    {"id": "value", "text": "คุณอยากได้แบบคุ้มค่าราคา หรือคุณภาพสูงสุด? (คุ้มค่า / คุณภาพสูงสุด)"},
+    {"id": "training_type", "text": "คุณเน้นการออกกำลังกายแบบไหน? (โยคะ/เวทเทรนนิ่ง/คาร์ดิโอ/ทั่วไป)"},
+    {"id": "frequency", "text": "คุณออกกำลังกายบ่อยแค่ไหน? (1-2 ครั้ง/สัปดาห์, 3-5 ครั้ง, ทุกวัน)"},
+    {"id": "storage", "text": "คุณต้องการเก็บสินค้าง่ายไหม? (พับเก็บได้, น้ำหนักเบา, ไม่สำคัญ)"},
+    {"id": "safety", "text": "คุณกังวลเรื่องความปลอดภัยแบบไหน? (กันลื่น, กันกระแทก, ไม่สำคัญ)"},
+    {"id": "brand", "text": "คุณสนใจแบรนด์เฉพาะหรือไม่? (Homefitt, Fittools, ไม่สำคัญ)"}
 ]
 
 quick_map = {
@@ -85,14 +90,40 @@ quick_map = {
             "value": [
                 QuickReplyButton(action=MessageAction(label="คุ้มค่า", text="คุ้มค่า")),
                 QuickReplyButton(action=MessageAction(label="คุณภาพสูงสุด", text="คุณภาพสูงสุด"))
+            ],
+            "training_type": [
+                QuickReplyButton(action=MessageAction(label="โยคะ", text="โยคะ")),
+                QuickReplyButton(action=MessageAction(label="เวทเทรนนิ่ง", text="เวทเทรนนิ่ง")),
+                QuickReplyButton(action=MessageAction(label="คาร์ดิโอ", text="คาร์ดิโอ")),
+                QuickReplyButton(action=MessageAction(label="ทั่วไป", text="ทั่วไป"))
+            ],
+            "frequency": [
+                QuickReplyButton(action=MessageAction(label="1-2 ครั้ง/สัปดาห์", text="1-2 ครั้ง/สัปดาห์")),
+                QuickReplyButton(action=MessageAction(label="3-5 ครั้ง/สัปดาห์", text="3-5 ครั้ง/สัปดาห์")),
+                QuickReplyButton(action=MessageAction(label="ทุกวัน", text="ทุกวัน"))
+            ],
+            "storage": [
+                QuickReplyButton(action=MessageAction(label="พับเก็บได้", text="พับเก็บได้")),
+                QuickReplyButton(action=MessageAction(label="น้ำหนักเบา", text="น้ำหนักเบา")),
+                QuickReplyButton(action=MessageAction(label="ไม่สำคัญ", text="ไม่สำคัญ"))
+            ],
+            "safety": [
+                QuickReplyButton(action=MessageAction(label="กันลื่น", text="กันลื่น")),
+                QuickReplyButton(action=MessageAction(label="กันกระแทก", text="กันกระแทก")),
+                QuickReplyButton(action=MessageAction(label="ไม่สำคัญ", text="ไม่สำคัญ"))
+            ],
+            "brand": [
+                QuickReplyButton(action=MessageAction(label="Homefitt", text="Homefitt")),
+                QuickReplyButton(action=MessageAction(label="Fittools", text="Fittools")),
+                QuickReplyButton(action=MessageAction(label="ไม่สำคัญ", text="ไม่สำคัญ"))
             ]
+
         }
 
 # ปุ่มพิเศษตอนเริ่มต้น (ไม่มี "แก้คำตอบก่อนหน้า")
 extra_buttons_init = [
     QuickReplyButton(action=MessageAction(label="⏭ ข้ามคำถาม", text="ข้าม")),
     QuickReplyButton(action=MessageAction(label="🛒 สินค้าขายดี", text="สินค้าขายดี")),
-    QuickReplyButton(action=MessageAction(label="💸 ลดราคา", text="สินค้าลดราคา"))
 ]
 
 
@@ -101,7 +132,6 @@ extra_buttons = [
     QuickReplyButton(action=MessageAction(label="🔄 แก้คำตอบก่อนหน้า", text="แก้คำตอบ")),
     QuickReplyButton(action=MessageAction(label="⏭ ข้ามคำถาม", text="ข้าม")),
     QuickReplyButton(action=MessageAction(label="🛒 สินค้าขายดี", text="สินค้าขายดี")),
-    QuickReplyButton(action=MessageAction(label="💸 ลดราคา", text="สินค้าลดราคา"))
 ]
 
 # -------- Load Products from Neo4j --------
@@ -181,7 +211,7 @@ def handle_message(event):
 
     # ---- init session ----
     if user_id not in user_profiles:
-        selected = random.sample(all_questions, 6)
+        selected = random.sample(all_questions, 7)
         user_profiles[user_id] = {
             "questions": selected,
             "answers": {},
@@ -274,11 +304,6 @@ def handle_message(event):
     elif message == "สินค้าขายดี":
         best_sellers = search_products("ขายดี", top_k=5)
         send_product_carousel(event.reply_token, best_sellers)
-        return
-
-    elif message == "สินค้าลดราคา":
-        discount_products = search_products("ลดราคา", top_k=5)
-        send_product_carousel(event.reply_token, discount_products)
         return
 
     # ---- เก็บคำตอบ ----
