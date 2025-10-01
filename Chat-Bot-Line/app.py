@@ -48,6 +48,75 @@ all_questions = [
     {"id": "brand", "text": "คุณสนใจแบรนด์เฉพาะหรือไม่? (Homefitt, Fittools, ไม่สำคัญ)"}
 ]
 
+question_variants = {
+    "budget": [
+        "คุณมีงบประมาณเท่าไหร่? (เช่น ไม่เกิน 500 / 500-1000 / 1000+)",
+        "โดยประมาณแล้ว คุณอยากใช้เงินเท่าไหร่ครับ?",
+        "งบที่คุณตั้งไว้สำหรับอุปกรณ์นี้อยู่ที่ช่วงไหน?",
+        "คุณคิดไว้ว่าจะลงทุนกับอุปกรณ์นี้เท่าไหร่ดี?"
+    ],
+    "place": [
+        "คุณอยากใช้สินค้านี้ที่ไหน? (บ้าน, ฟิตเนส, สนามกีฬา)",
+        "ปกติแล้วคุณจะใช้งานอุปกรณ์นี้ที่สถานที่ไหนครับ?",
+        "คุณวางแผนจะนำอุปกรณ์นี้ไปใช้ที่ไหนเป็นหลัก?",
+        "อุปกรณ์นี้จะถูกใช้งานในที่ใดครับ? (บ้าน, ฟิตเนส, สนามกีฬา)"
+    ],
+    "size": [
+        "คุณอยากได้สินค้าขนาดเท่าไหร่? (เล็ก, กลาง, ใหญ่)",
+        "คุณต้องการอุปกรณ์ขนาดเล็ก กลาง หรือใหญ่ครับ?",
+        "ขนาดของอุปกรณ์ที่คุณสนใจควรเป็นแบบไหน?",
+        "คุณคิดว่าขนาดใดเหมาะกับคุณที่สุด? (เล็ก/กลาง/ใหญ่)"
+    ],
+    "feature": [
+        "คุณต้องการคุณสมบัติเด่นแบบไหน? (ลดแรงกระแทก, ทำความสะอาดง่าย, ทนความร้อน)",
+        "อุปกรณ์นี้ควรมีคุณสมบัติพิเศษแบบใดที่คุณให้ความสำคัญ?",
+        "คุณอยากให้อุปกรณ์มีจุดเด่นด้านใดครับ?",
+        "ในบรรดาคุณสมบัติพิเศษ คุณให้ความสำคัญกับข้อไหน?"
+    ],
+    "material": [
+        "คุณสนใจวัสดุอะไร? (EVA, ยาง, โฟม, ไม่ระบุ)",
+        "วัสดุที่คุณอยากได้ควรเป็นแบบไหนครับ?",
+        "คุณอยากให้ทำจาก EVA, ยาง, โฟม หรือไม่ระบุ?",
+        "วัสดุของอุปกรณ์นี้มีผลต่อการตัดสินใจของคุณไหม?"
+    ],
+    "lifetime": [
+        "คุณคาดหวังอายุการใช้งานกี่ปี? (1-2 ปี, 3-5 ปี, มากกว่า 5 ปี)",
+        "คุณอยากให้อุปกรณ์นี้ใช้งานได้ประมาณกี่ปีครับ?",
+        "อุปกรณ์นี้ควรใช้งานได้ในระยะเวลานานแค่ไหน?",
+        "คุณคิดว่าอายุการใช้งานที่เหมาะสมควรอยู่ที่กี่ปี?"
+    ],
+    "color": [
+        "คุณอยากเลือกสีไหม? (เทา, ดำ, ไม่สำคัญ)",
+        "เรื่องสีของอุปกรณ์นี้สำคัญสำหรับคุณไหม?",
+        "คุณมีสีที่ชอบหรืออยากเลือกไว้ล่วงหน้าหรือไม่?",
+        "คุณอยากได้สีเทา ดำ หรือไม่ระบุ?"
+    ],
+    "value": [
+        "คุณอยากได้แบบคุ้มค่าราคา หรือคุณภาพสูงสุด? (คุ้มค่า / คุณภาพสูงสุด)",
+        "คุณให้ความสำคัญกับความคุ้มค่าหรือคุณภาพสูงกว่ากัน?",
+        "สำหรับคุณแล้ว อะไรสำคัญกว่าระหว่างราคาและคุณภาพ?",
+        "คุณอยากเน้นคุ้มค่าหรือเน้นคุณภาพสูงสุด?"
+    ],
+    "frequency": [
+        "คุณออกกำลังกายบ่อยแค่ไหน? (1-2 ครั้ง/สัปดาห์, 3-5 ครั้ง, ทุกวัน)",
+        "โดยทั่วไปคุณมักออกกำลังกายกี่ครั้งต่อสัปดาห์?",
+        "คุณจัดตารางออกกำลังกายไว้บ่อยแค่ไหนครับ?",
+        "คุณมักออกกำลังกายเป็นประจำทุกวัน หรือสัปดาห์ละกี่ครั้ง?"
+    ],
+    "safety": [
+        "คุณกังวลเรื่องความปลอดภัยแบบไหน? (กันลื่น, กันกระแทก, ไม่สำคัญ)",
+        "เรื่องความปลอดภัย คุณให้ความสำคัญด้านใดมากที่สุด?",
+        "อุปกรณ์นี้ควรช่วยลดความเสี่ยงในเรื่องใด?",
+        "คุณอยากให้เน้นป้องกันแบบไหนครับ? กันลื่น กันกระแทก หรือไม่ระบุ"
+    ],
+    "brand": [
+        "คุณสนใจแบรนด์เฉพาะหรือไม่? (Homefitt, Fittools, ไม่สำคัญ)",
+        "คุณอยากเลือกจากแบรนด์ไหนเป็นพิเศษหรือเปล่า?",
+        "เรื่องแบรนด์มีผลต่อการเลือกของคุณไหม?",
+        "คุณอยากได้ยี่ห้อเฉพาะ หรือไม่ซีเรียสเรื่องแบรนด์?"
+    ]
+}
+
 quick_map = {
             "budget": [
                 QuickReplyButton(action=MessageAction(label="≤500", text="≤500")),
@@ -189,7 +258,11 @@ def send_product_carousel(reply_token, products):
     )
     line_bot_api.reply_message(reply_token, carousel)
 
-
+# -------- สุ่มประโยค --------
+def get_question_text(qid, default_text):
+    if qid in question_variants:
+        return random.choice(question_variants[qid])
+    return default_text
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
@@ -207,7 +280,7 @@ def handle_message(event):
         }
 
         qid = selected[0]["id"]
-        qtext = selected[0]["text"]
+        qtext = get_question_text(qid, selected[0]["text"])
         progress = get_progress_text(1, len(selected))
 
         intro = (
@@ -248,7 +321,7 @@ def handle_message(event):
         if profile["current_q"] > 0:
             profile["current_q"] -= 1  # ย้อนกลับ 1 ข้อ
             qid = profile["questions"][profile["current_q"]]["id"]
-            qtext = profile["questions"][profile["current_q"]]["text"]
+            qtext = get_question_text(qid, profile["questions"][profile["current_q"]]["text"])
             progress = get_progress_text(profile["current_q"]+1, len(profile["questions"]))
 
             line_bot_api.reply_message(
@@ -268,7 +341,7 @@ def handle_message(event):
         # ส่งคำถามถัดไป (เหมือน flow ปกติ)
         if profile["current_q"] < len(profile["questions"]):
             qid = profile["questions"][profile["current_q"]]["id"]
-            qtext = profile["questions"][profile["current_q"]]["text"]
+            qtext = get_question_text(qid, profile["questions"][profile["current_q"]]["text"])
             progress = get_progress_text(profile["current_q"]+1, len(profile["questions"]))
             
             if qid in quick_map:
@@ -301,7 +374,7 @@ def handle_message(event):
 
         if profile["current_q"] < len(profile["questions"]):
             qid = profile["questions"][profile["current_q"]]["id"]
-            qtext = profile["questions"][profile["current_q"]]["text"]
+            qtext = get_question_text(qid, profile["questions"][profile["current_q"]]["text"])
             progress = get_progress_text(profile["current_q"]+1, len(profile["questions"]))
 
             if qid in quick_map:
