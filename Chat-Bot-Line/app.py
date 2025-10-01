@@ -43,9 +43,7 @@ all_questions = [
     {"id": "lifetime", "text": "คุณคาดหวังอายุการใช้งานกี่ปี? (1-2 ปี, 3-5 ปี, มากกว่า 5 ปี)"},
     {"id": "color", "text": "คุณอยากเลือกสีไหม? (เทา, ดำ, ไม่สำคัญ)"},
     {"id": "value", "text": "คุณอยากได้แบบคุ้มค่าราคา หรือคุณภาพสูงสุด? (คุ้มค่า / คุณภาพสูงสุด)"},
-    {"id": "training_type", "text": "คุณเน้นการออกกำลังกายแบบไหน? (โยคะ/เวทเทรนนิ่ง/คาร์ดิโอ/ทั่วไป)"},
     {"id": "frequency", "text": "คุณออกกำลังกายบ่อยแค่ไหน? (1-2 ครั้ง/สัปดาห์, 3-5 ครั้ง, ทุกวัน)"},
-    {"id": "storage", "text": "คุณต้องการเก็บสินค้าง่ายไหม? (พับเก็บได้, น้ำหนักเบา, ไม่สำคัญ)"},
     {"id": "safety", "text": "คุณกังวลเรื่องความปลอดภัยแบบไหน? (กันลื่น, กันกระแทก, ไม่สำคัญ)"},
     {"id": "brand", "text": "คุณสนใจแบรนด์เฉพาะหรือไม่? (Homefitt, Fittools, ไม่สำคัญ)"}
 ]
@@ -91,21 +89,10 @@ quick_map = {
                 QuickReplyButton(action=MessageAction(label="คุ้มค่า", text="คุ้มค่า")),
                 QuickReplyButton(action=MessageAction(label="คุณภาพสูงสุด", text="คุณภาพสูงสุด"))
             ],
-            "training_type": [
-                QuickReplyButton(action=MessageAction(label="โยคะ", text="โยคะ")),
-                QuickReplyButton(action=MessageAction(label="เวทเทรนนิ่ง", text="เวทเทรนนิ่ง")),
-                QuickReplyButton(action=MessageAction(label="คาร์ดิโอ", text="คาร์ดิโอ")),
-                QuickReplyButton(action=MessageAction(label="ทั่วไป", text="ทั่วไป"))
-            ],
             "frequency": [
                 QuickReplyButton(action=MessageAction(label="1-2 ครั้ง/สัปดาห์", text="1-2 ครั้ง/สัปดาห์")),
                 QuickReplyButton(action=MessageAction(label="3-5 ครั้ง/สัปดาห์", text="3-5 ครั้ง/สัปดาห์")),
                 QuickReplyButton(action=MessageAction(label="ทุกวัน", text="ทุกวัน"))
-            ],
-            "storage": [
-                QuickReplyButton(action=MessageAction(label="พับเก็บได้", text="พับเก็บได้")),
-                QuickReplyButton(action=MessageAction(label="น้ำหนักเบา", text="น้ำหนักเบา")),
-                QuickReplyButton(action=MessageAction(label="ไม่สำคัญ", text="ไม่สำคัญ"))
             ],
             "safety": [
                 QuickReplyButton(action=MessageAction(label="กันลื่น", text="กันลื่น")),
