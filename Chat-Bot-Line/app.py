@@ -88,6 +88,22 @@ quick_map = {
             ]
         }
 
+# ปุ่มพิเศษตอนเริ่มต้น (ไม่มี "แก้คำตอบก่อนหน้า")
+extra_buttons_init = [
+    QuickReplyButton(action=MessageAction(label="⏭ ข้ามคำถาม", text="ข้าม")),
+    QuickReplyButton(action=MessageAction(label="🛒 สินค้าขายดี", text="สินค้าขายดี")),
+    QuickReplyButton(action=MessageAction(label="💸 ลดราคา", text="สินค้าลดราคา"))
+]
+
+
+# ปุ่มพิเศษที่อยากใส่เพิ่มทุกครั้ง
+extra_buttons = [
+    QuickReplyButton(action=MessageAction(label="🔄 แก้คำตอบก่อนหน้า", text="แก้คำตอบ")),
+    QuickReplyButton(action=MessageAction(label="⏭ ข้ามคำถาม", text="ข้าม")),
+    QuickReplyButton(action=MessageAction(label="🛒 สินค้าขายดี", text="สินค้าขายดี")),
+    QuickReplyButton(action=MessageAction(label="💸 ลดราคา", text="สินค้าลดราคา"))
+]
+
 # -------- Load Products from Neo4j --------
 def load_products():
     with driver.session() as session:
@@ -134,6 +150,29 @@ def callback():
 def get_progress_text(current, total):
     return f"({current}/{total}) ✅"
 
+# -------- ฟังก์ชันส่งสินค้า --------
+def send_product_carousel(reply_token, products):
+    if not products:
+        line_bot_api.reply_message(reply_token, TextSendMessage(text="ไม่มีสินค้าตรงเงื่อนไขครับ"))
+        return
+
+    columns = []
+    for p in products:
+        col = CarouselColumn(
+            title=p["name"][:40],
+            text=f"ราคา: {p['price']}" if p["price"] else "N/A",
+            thumbnail_image_url=p.get("image_url"),
+            actions=[URITemplateAction(label="ดูรายละเอียด", uri=p["url"])]
+        )
+        columns.append(col)
+
+    carousel = TemplateSendMessage(
+        alt_text="สินค้าแนะนำ",
+        template=CarouselTemplate(columns=columns)
+    )
+    line_bot_api.reply_message(reply_token, carousel)
+
+
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
@@ -169,11 +208,12 @@ def handle_message(event):
         )
         
         if qid in quick_map:
+            quick_items = quick_map[qid] + extra_buttons_init
             line_bot_api.reply_message(
                 event.reply_token,
                 TextSendMessage(
                     text=intro,
-                    quick_reply=QuickReply(items=quick_map[qid])
+                    quick_reply=QuickReply(items=quick_items)
                 )
             )
         else:
@@ -184,6 +224,62 @@ def handle_message(event):
         return
 
     profile = user_profiles[user_id]
+
+    # ---- check คำสั่งพิเศษ ----
+    if message == "แก้คำตอบ":
+        profile = user_profiles[user_id]
+        if profile["current_q"] > 0:
+            profile["current_q"] -= 1  # ย้อนกลับ 1 ข้อ
+            qid = profile["questions"][profile["current_q"]]["id"]
+            qtext = profile["questions"][profile["current_q"]]["text"]
+            progress = get_progress_text(profile["current_q"]+1, len(profile["questions"]))
+
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(
+                    text=f"แก้คำตอบข้อนี้ได้เลยครับ\n{progress}\n{qtext}",
+                    quick_reply=QuickReply(items=quick_map[qid] + extra_buttons)
+                )
+            )
+        return
+
+    elif message == "ข้าม":
+        profile = user_profiles[user_id]
+        profile["answers"][profile["questions"][profile["current_q"]]["id"]] = "ข้าม"
+        profile["current_q"] += 1
+
+        # ส่งคำถามถัดไป (เหมือน flow ปกติ)
+        if profile["current_q"] < len(profile["questions"]):
+            qid = profile["questions"][profile["current_q"]]["id"]
+            qtext = profile["questions"][profile["current_q"]]["text"]
+            progress = get_progress_text(profile["current_q"]+1, len(profile["questions"]))
+            
+            if qid in quick_map:
+                quick_items = quick_map[qid] + extra_buttons
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    TextSendMessage(
+                        text=f"{progress}\n{qtext}",
+                        quick_reply=QuickReply(items=quick_items)
+                    )
+                )
+            else:
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    TextSendMessage(text=f"{progress}\n{qtext}")
+                )
+        else:
+            profile["finished"] = True
+
+    elif message == "สินค้าขายดี":
+        best_sellers = search_products("ขายดี", top_k=5)
+        send_product_carousel(event.reply_token, best_sellers)
+        return
+
+    elif message == "สินค้าลดราคา":
+        discount_products = search_products("ลดราคา", top_k=5)
+        send_product_carousel(event.reply_token, discount_products)
+        return
 
     # ---- เก็บคำตอบ ----
     if not profile["finished"]:
@@ -197,11 +293,12 @@ def handle_message(event):
             progress = get_progress_text(profile["current_q"]+1, len(profile["questions"]))
 
             if qid in quick_map:
+                quick_items = quick_map[qid] + extra_buttons
                 line_bot_api.reply_message(
                     event.reply_token,
                     TextSendMessage(
                         text=f"{progress}\n{qtext}",
-                        quick_reply=QuickReply(items=quick_map[qid])
+                        quick_reply=QuickReply(items=quick_items)
                     )
                 )
             else:
@@ -209,7 +306,6 @@ def handle_message(event):
                     event.reply_token,
                     TextSendMessage(text=f"{progress}\n{qtext}")
                 )
-            return
 
         else:
             profile["finished"] = True
@@ -227,7 +323,7 @@ def handle_message(event):
     for r in results:
         col = CarouselColumn(
             title=r["name"][:40],
-            text=r["price"] or "N/A",
+            text=f"ราคา: {r['price']}" if r.get("price") else "N/A",
             thumbnail_image_url=r.get("image_url"),
             actions=[URITemplateAction(label="ดูรายละเอียด", uri=r["url"])]
         )
