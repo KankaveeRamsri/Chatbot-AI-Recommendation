@@ -130,6 +130,11 @@ def callback():
         abort(400)
     return 'OK'
 
+# -------- Progress Bar --------
+def get_progress_text(current, total):
+    return f"({current}/{total}) ✅"
+
+
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     user_id = event.source.user_id
@@ -147,6 +152,7 @@ def handle_message(event):
 
         qid = selected[0]["id"]
         qtext = selected[0]["text"]
+        progress = get_progress_text(1, len(selected))
 
         intro = (
         "สวัสดีครับ 🙌  \n"
@@ -159,7 +165,7 @@ def handle_message(event):
         "• ใช้งานได้จริง: เหมาะกับบ้าน, คอนโด และฟิตเนสทุกขนาด  \n\n"
         "พร้อมแล้วหรือยังครับ? 🚀  \n"
         "ตอบคำถามแรกได้เลย แล้วผมจะช่วยเลือกอุปกรณ์ที่ใช่สำหรับคุณ 💪  \n\n"
-        f"{qtext}"
+        f"{progress}\n{qtext}"
         )
         
         if qid in quick_map:
@@ -188,18 +194,21 @@ def handle_message(event):
         if profile["current_q"] < len(profile["questions"]):
             qid = profile["questions"][profile["current_q"]]["id"]
             qtext = profile["questions"][profile["current_q"]]["text"]
+            progress = get_progress_text(profile["current_q"]+1, len(profile["questions"]))
 
             if qid in quick_map:
                 line_bot_api.reply_message(
                     event.reply_token,
                     TextSendMessage(
-                        text=qtext,
+                        text=f"{progress}\n{qtext}",
                         quick_reply=QuickReply(items=quick_map[qid])
                     )
                 )
             else:
-                # ถ้าไม่มี quick reply ให้ส่งเป็น text ธรรมดา
-                line_bot_api.reply_message(event.reply_token, TextSendMessage(text=qtext))
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    TextSendMessage(text=f"{progress}\n{qtext}")
+                )
             return
 
         else:
