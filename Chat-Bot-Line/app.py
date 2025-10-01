@@ -12,6 +12,7 @@ from linebot.models import (
     TemplateSendMessage, CarouselTemplate, CarouselColumn, URITemplateAction
 )
 from linebot.models import QuickReply, QuickReplyButton, MessageAction
+from linebot.models import TemplateSendMessage, CarouselTemplate, CarouselColumn, URITemplateAction, TextSendMessage
 
 app = Flask(__name__)
 
@@ -190,6 +191,32 @@ extra_buttons = [
     QuickReplyButton(action=MessageAction(label="🛒 สินค้าขายดี", text="สินค้าขายดี")),
 ]
 
+# -------- Filter budget --------
+def filter_products_by_budget(products, budget_answer):
+    def parse_price(p):
+        try:
+            return int(p.get("price"))
+        except (TypeError, ValueError):
+            return None
+
+    if "≤500" in budget_answer or "ไม่เกิน 500" in budget_answer:
+        return [p for p in products if parse_price(p) is not None and parse_price(p) <= 500]
+    elif "500-1000" in budget_answer:
+        return [p for p in products if parse_price(p) is not None and 500 <= parse_price(p) <= 1000]
+    elif "1000+" in budget_answer or "มากกว่า 1000" in budget_answer:
+        return [p for p in products if parse_price(p) is not None and parse_price(p) >= 1000]
+    return products
+
+def clean_price(val):
+    if not val:
+        return None
+    try:
+        # เอาเฉพาะตัวเลขออกมา
+        cleaned = "".join([c for c in str(val) if c.isdigit()])
+        return int(cleaned) if cleaned else None
+    except:
+        return None
+
 # -------- Load Products from Neo4j --------
 def load_products():
     with driver.session() as session:
@@ -202,7 +229,20 @@ def load_products():
                i.url AS image_url
         """
         result = session.run(query)
-        return [record.data() for record in result]
+        products = []
+        for record in result:
+            data = record.data()
+
+            print("DEBUG PRICE:", data.get("price"))
+
+            # clean price
+            try:
+                data["price"] = clean_price(data.get("price"))
+            except:
+                data["price"] = None
+            products.append(data)
+        return products
+
 
 # -------- Build FAISS Index --------
 def build_faiss_index(products):
@@ -237,26 +277,24 @@ def get_progress_text(current, total):
     return f"({current}/{total}) ✅"
 
 # -------- ฟังก์ชันส่งสินค้า --------
-def send_product_carousel(reply_token, products):
+def build_product_carousel(products):
     if not products:
-        line_bot_api.reply_message(reply_token, TextSendMessage(text="ไม่มีสินค้าตรงเงื่อนไขครับ"))
-        return
+        return TextSendMessage(text="ไม่มีสินค้าตรงเงื่อนไขครับ")
 
     columns = []
     for p in products:
         col = CarouselColumn(
-            title=p["name"][:40],
-            text=f"ราคา: {p['price']}" if p["price"] else "N/A",
+            title=(p.get("name") or "")[:40],
+            text=f"ราคา: {p['price']:,} บาท" if p.get("price") else "ราคาไม่ระบุ",
             thumbnail_image_url=p.get("image_url"),
             actions=[URITemplateAction(label="ดูรายละเอียด", uri=p["url"])]
         )
         columns.append(col)
 
-    carousel = TemplateSendMessage(
+    return TemplateSendMessage(
         alt_text="สินค้าแนะนำ",
         template=CarouselTemplate(columns=columns)
     )
-    line_bot_api.reply_message(reply_token, carousel)
 
 # -------- สุ่มประโยค --------
 def get_question_text(qid, default_text):
@@ -271,7 +309,13 @@ def handle_message(event):
 
     # ---- init session ----
     if user_id not in user_profiles:
-        selected = random.sample(all_questions, 7)
+        # fix ให้ budget อยู่เสมอ
+        must_have = next(q for q in all_questions if q["id"] == "budget")
+        other_qs = [q for q in all_questions if q["id"] != "budget"]
+
+        # เลือกสุ่มเพิ่มจากข้ออื่น ๆ
+        selected = [must_have] + random.sample(other_qs, 6)
+
         user_profiles[user_id] = {
             "questions": selected,
             "answers": {},
@@ -353,6 +397,7 @@ def handle_message(event):
                         quick_reply=QuickReply(items=quick_items)
                     )
                 )
+                return
             else:
                 line_bot_api.reply_message(
                     event.reply_token,
@@ -363,7 +408,7 @@ def handle_message(event):
 
     elif message == "สินค้าขายดี":
         best_sellers = search_products("ขายดี", top_k=5)
-        send_product_carousel(event.reply_token, best_sellers)
+        build_product_carousel(event.reply_token, best_sellers)
         return
 
     # ---- เก็บคำตอบ ----
@@ -386,6 +431,7 @@ def handle_message(event):
                         quick_reply=QuickReply(items=quick_items)
                     )
                 )
+                return
             else:
                 line_bot_api.reply_message(
                     event.reply_token,
@@ -395,30 +441,47 @@ def handle_message(event):
         else:
             profile["finished"] = True
 
-    # ---- เมื่อครบ 6 ข้อ → สร้าง query text ----
+    # ---- เมื่อครบ 7 ข้อ → สร้าง query text ----
     query_text = " ".join(profile["answers"].values())
-    results = search_products(query_text, top_k=5)
 
+    # --- filter ก่อนด้วย budget ---
+    budget_answer = profile["answers"].get("budget", "")
+    filtered_products = filter_products_by_budget(products, budget_answer)
+
+    fallback = False
+    if not filtered_products:
+        filtered_products = products
+        fallback = True
+
+    # --- semantic search บน subset ---
+    texts = [f"{p['name']} {p['description']} {p['price']}" for p in filtered_products]
+    embeds = model.encode(texts, normalize_embeddings=True)
+    sub_index = faiss.IndexFlatIP(embeds.shape[1])
+    sub_index.add(embeds)
+
+    query_vec = model.encode([query_text], normalize_embeddings=True)
+    distances, indices = sub_index.search(query_vec, min(5, len(filtered_products)))
+    results = [filtered_products[i] for i in indices[0]]
+
+    # ---- สร้าง messages แล้ว reply "ครั้งเดียว" ----
     if not results:
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text="ไม่พบสินค้าที่ตรงเงื่อนไขครับ 😥"))
         return
 
-    # ---- สร้าง carousel แสดงสินค้า ----
-    columns = []
-    for r in results:
-        col = CarouselColumn(
-            title=r["name"][:40],
-            text=f"ราคา: {r['price']}" if r.get("price") else "N/A",
-            thumbnail_image_url=r.get("image_url"),
-            actions=[URITemplateAction(label="ดูรายละเอียด", uri=r["url"])]
-        )
-        columns.append(col)
+    carousel_msg = build_product_carousel(results)
 
-    carousel = TemplateSendMessage(
-        alt_text="สินค้าแนะนำ",
-        template=CarouselTemplate(columns=columns)
-    )
-    line_bot_api.reply_message(event.reply_token, carousel)
+    if fallback:
+        line_bot_api.reply_message(event.reply_token, [
+            TextSendMessage(text="ไม่พบสินค้าที่ตรงงบเป๊ะ ๆ ครับ 😅 แต่ผมแนะนำที่ใกล้เคียงให้แทน 👇"),
+            carousel_msg
+        ])
+        return
+    else:
+        line_bot_api.reply_message(event.reply_token, [
+            TextSendMessage(text="นี่คือสินค้าที่เหมาะกับคุณ 👇"),
+            carousel_msg
+        ])
+        return
 
 if __name__ == "__main__":
     app.run(port=5000)
