@@ -233,7 +233,7 @@ def load_products():
         for record in result:
             data = record.data()
 
-            print("DEBUG PRICE:", data.get("price"))
+            # print("DEBUG PRICE:", data.get("price"))
 
             # clean price
             try:
@@ -333,7 +333,7 @@ def handle_message(event):
         "คุณอยากเริ่มออกกำลังกาย แต่ไม่แน่ใจว่าอุปกรณ์แบบไหนเหมาะกับตัวเองใช่ไหมครับ?  \n"
         "ที่นี่เรามีครบ — ไม่ว่าจะเป็น 🏋️‍♂️ แผ่นรองพื้น EVA, ยางยืดแรงต้าน, บาร์ดึงข้อ หรืออุปกรณ์บอดี้เวทอื่น ๆ  \n\n"
         "🎯 จุดเด่นของเรา  \n"
-        "• เลือกง่าย: ตอบคำถามแค่ 6 ข้อ  \n"
+        "• เลือกง่าย: ตอบคำถามแค่ 7 ข้อ  \n"
         "• ได้ของตรงใจ: แนะนำสินค้าที่เหมาะกับงบและเป้าหมาย  \n"
         "• ใช้งานได้จริง: เหมาะกับบ้าน, คอนโด และฟิตเนสทุกขนาด  \n\n"
         "พร้อมแล้วหรือยังครับ? 🚀  \n"
@@ -362,19 +362,48 @@ def handle_message(event):
     # ---- check คำสั่งพิเศษ ----
     if message == "แก้คำตอบ":
         profile = user_profiles[user_id]
-        if profile["current_q"] > 0:
-            profile["current_q"] -= 1  # ย้อนกลับ 1 ข้อ
-            qid = profile["questions"][profile["current_q"]]["id"]
-            qtext = get_question_text(qid, profile["questions"][profile["current_q"]]["text"])
-            progress = get_progress_text(profile["current_q"]+1, len(profile["questions"]))
+        answered_qs = profile["answers"].keys()
 
-            line_bot_api.reply_message(
-                event.reply_token,
-                TextSendMessage(
-                    text=f"แก้คำตอบข้อนี้ได้เลยครับ\n{progress}\n{qtext}",
-                    quick_reply=QuickReply(items=quick_map[qid] + extra_buttons)
+        quick_items = []
+        for idx, q in enumerate(profile["questions"], start=1):
+            if q["id"] in answered_qs:
+                quick_items.append(
+                    QuickReplyButton(action=MessageAction(label=f"ข้อ {idx}", text=f"แก้:{q['id']}"))
                 )
+
+        # บันทึกตำแหน่งปัจจุบันเอาไว้ก่อน
+        profile["resume_q"] = profile["current_q"]
+
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(
+                text="คุณอยากแก้คำตอบข้อไหนครับ? 🔄",
+                quick_reply=QuickReply(items=quick_items)
             )
+        )
+        return
+
+    # กรณีเลือกแก้ข้อที่ระบุ
+    elif message.startswith("แก้:"):
+        profile = user_profiles[user_id]
+        qid = message.replace("แก้:", "")
+        
+        # ตั้ง current_q ชั่วคราวเป็นข้อที่เลือกมาแก้
+        for idx, q in enumerate(profile["questions"]):
+            if q["id"] == qid:
+                profile["current_q"] = idx
+                break
+
+        qtext = get_question_text(qid, [q for q in all_questions if q["id"] == qid][0]["text"])
+        progress = get_progress_text(profile["current_q"]+1, len(profile["questions"]))
+
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(
+                text=f"แก้คำตอบข้อนี้ได้เลยครับ\n{progress}\n{qtext}",
+                quick_reply=QuickReply(items=quick_map[qid] + extra_buttons)
+            )
+        )
         return
 
     elif message == "ข้าม":
@@ -408,14 +437,62 @@ def handle_message(event):
 
     elif message == "สินค้าขายดี":
         best_sellers = search_products("ขายดี", top_k=5)
-        build_product_carousel(event.reply_token, best_sellers)
+        line_bot_api.reply_message(
+            event.reply_token,
+            [
+                TextSendMessage(text="นี่คือสินค้าขายดี 👇"),
+                build_product_carousel(best_sellers),
+                TextSendMessage(
+                    text="อยากเริ่มใหม่อีกครั้งไหมครับ? 😊",
+                    quick_reply=QuickReply(items=[
+                        QuickReplyButton(action=MessageAction(label="🔄 เริ่มใหม่", text="เริ่มใหม่"))
+                    ])
+                )
+            ]
+        )
+        return
+
+    elif message == "เริ่มใหม่":
+        # reset session
+        if user_id in user_profiles:
+            del user_profiles[user_id]
+
+        # สร้าง session ใหม่
+        must_have = next(q for q in all_questions if q["id"] == "budget")
+        other_qs = [q for q in all_questions if q["id"] != "budget"]
+        selected = [must_have] + random.sample(other_qs, 6)
+
+        user_profiles[user_id] = {
+            "questions": selected,
+            "answers": {},
+            "current_q": 0,
+            "finished": False
+        }
+
+        qid = selected[0]["id"]
+        qtext = get_question_text(qid, selected[0]["text"])
+        progress = get_progress_text(1, len(selected))
+
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(
+                text=f"🎉 เริ่มใหม่กันเลย!\n{progress}\n{qtext}",
+                quick_reply=QuickReply(items=quick_map[qid] + extra_buttons_init)
+            )
+        )
         return
 
     # ---- เก็บคำตอบ ----
     if not profile["finished"]:
         qid = profile["questions"][profile["current_q"]]["id"]
         profile["answers"][qid] = message
-        profile["current_q"] += 1
+        
+        # ถ้าเป็นการแก้ไข → กลับไป resume_q
+        if "resume_q" in profile:
+            profile["current_q"] = profile["resume_q"]
+            del profile["resume_q"]
+        else:
+            profile["current_q"] += 1
 
         if profile["current_q"] < len(profile["questions"]):
             qid = profile["questions"][profile["current_q"]]["id"]
@@ -463,23 +540,41 @@ def handle_message(event):
     distances, indices = sub_index.search(query_vec, min(5, len(filtered_products)))
     results = [filtered_products[i] for i in indices[0]]
 
+    
+    # ---- เตรียมสรุปคำตอบ ----
+    summary_lines = ["สรุปคำตอบของคุณนะครับ 👇"]
+    for idx, q in enumerate(profile["questions"], start=1):
+        qid = q["id"]
+        ans = profile["answers"].get(qid, "ไม่ระบุ")
+        summary_lines.append(f"- ข้อ {idx}: {ans}")
+
+    summary_text = "\n".join(summary_lines)
+
     # ---- สร้าง messages แล้ว reply "ครั้งเดียว" ----
     if not results:
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="ไม่พบสินค้าที่ตรงเงื่อนไขครับ 😥"))
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=summary_text), TextSendMessage(text="ไม่พบสินค้าที่ตรงเงื่อนไขครับ 😥"))
         return
 
     carousel_msg = build_product_carousel(results)
 
     if fallback:
         line_bot_api.reply_message(event.reply_token, [
+            TextSendMessage(text=summary_text),
             TextSendMessage(text="ไม่พบสินค้าที่ตรงงบเป๊ะ ๆ ครับ 😅 แต่ผมแนะนำที่ใกล้เคียงให้แทน 👇"),
             carousel_msg
         ])
         return
     else:
         line_bot_api.reply_message(event.reply_token, [
+            TextSendMessage(text=summary_text),
             TextSendMessage(text="นี่คือสินค้าที่เหมาะกับคุณ 👇"),
-            carousel_msg
+            carousel_msg,
+            TextSendMessage(
+                text="อยากลองเลือกใหม่อีกครั้งไหมครับ? ✨",
+                quick_reply=QuickReply(items=[
+                    QuickReplyButton(action=MessageAction(label="🔄 เริ่มใหม่", text="เริ่มใหม่"))
+                ])
+            )
         ])
         return
 
