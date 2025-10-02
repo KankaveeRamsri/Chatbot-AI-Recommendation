@@ -11,7 +11,7 @@ from linebot.models import (
     MessageEvent, TextMessage, TextSendMessage,
     TemplateSendMessage, CarouselTemplate, CarouselColumn, URITemplateAction
 )
-from linebot.models import QuickReply, QuickReplyButton, MessageAction,TemplateSendMessage, CarouselTemplate, CarouselColumn, URITemplateAction, TextSendMessage
+from linebot.models import QuickReply, QuickReplyButton, MessageAction,TemplateSendMessage, CarouselTemplate, CarouselColumn, URITemplateAction, TextSendMessage, PostbackAction, PostbackEvent
 from datetime import datetime
 
 app = Flask(__name__)
@@ -287,7 +287,9 @@ def build_product_carousel(products):
             title=(p.get("name") or "")[:40],
             text=f"ราคา: {p['price']:,} บาท" if p.get("price") else "ราคาไม่ระบุ",
             thumbnail_image_url=p.get("image_url"),
-            actions=[URITemplateAction(label="ดูรายละเอียด", uri=p["url"])]
+            actions=[
+                URITemplateAction(label="ดูรายละเอียด", uri=p["url"])
+            ]
         )
         columns.append(col)
 
@@ -322,6 +324,20 @@ def log_user_action(user_id, action, data=None):
         MERGE (u)-[:HAS_LOG]->(l)
         """
         session.run(query, user_id=user_id, action=action, data=str(data), timestamp=timestamp)
+
+@handler.add(PostbackEvent)
+def handle_postback(event):
+    user_id = event.source.user_id
+    data = event.postback.data
+
+    if data.startswith("view_product:"):
+        product_name = data.replace("view_product:", "")
+        log_user_action(user_id, "view_product", {"product_name": product_name})
+
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text=f"คุณกดดูรายละเอียดสินค้า: {product_name}")
+        )
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
