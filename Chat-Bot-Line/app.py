@@ -11,8 +11,8 @@ from linebot.models import (
     MessageEvent, TextMessage, TextSendMessage,
     TemplateSendMessage, CarouselTemplate, CarouselColumn, URITemplateAction
 )
-from linebot.models import QuickReply, QuickReplyButton, MessageAction
-from linebot.models import TemplateSendMessage, CarouselTemplate, CarouselColumn, URITemplateAction, TextSendMessage
+from linebot.models import QuickReply, QuickReplyButton, MessageAction,TemplateSendMessage, CarouselTemplate, CarouselColumn, URITemplateAction, TextSendMessage
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -302,6 +302,27 @@ def get_question_text(qid, default_text):
         return random.choice(question_variants[qid])
     return default_text
 
+def log_user_action(user_id, action, data=None):
+    """
+    บันทึกการกระทำของผู้ใช้ลง Neo4j
+    :param user_id: ไอดีผู้ใช้ LINE
+    :param action: ประเภท action เช่น 'answer', 'search', 'view_product', 'best_seller'
+    :param data: ข้อมูลเพิ่มเติม (dict หรือ string)
+    """
+    timestamp = datetime.now().isoformat()
+
+    with driver.session() as session:
+        query = """
+        MERGE (u:User {id: $user_id})
+        CREATE (l:Log {
+            action: $action,
+            data: $data,
+            timestamp: $timestamp
+        })
+        MERGE (u)-[:HAS_LOG]->(l)
+        """
+        session.run(query, user_id=user_id, action=action, data=str(data), timestamp=timestamp)
+
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     user_id = event.source.user_id
@@ -437,6 +458,8 @@ def handle_message(event):
 
     elif message == "สินค้าขายดี":
         best_sellers = search_products("ขายดี", top_k=5)
+        log_user_action(user_id, "best_seller", {"results": [p["name"] for p in best_sellers]})
+
         line_bot_api.reply_message(
             event.reply_token,
             [
@@ -486,7 +509,8 @@ def handle_message(event):
     if not profile["finished"]:
         qid = profile["questions"][profile["current_q"]]["id"]
         profile["answers"][qid] = message
-        
+        log_user_action(user_id, "answer", {"question_id": qid, "answer": message})
+
         # ถ้าเป็นการแก้ไข → กลับไป resume_q
         if "resume_q" in profile:
             profile["current_q"] = profile["resume_q"]
@@ -539,7 +563,8 @@ def handle_message(event):
     query_vec = model.encode([query_text], normalize_embeddings=True)
     distances, indices = sub_index.search(query_vec, min(5, len(filtered_products)))
     results = [filtered_products[i] for i in indices[0]]
-
+    
+    log_user_action(user_id, "search", {"query": query_text, "results": [p["name"] for p in results]})
     
     # ---- เตรียมสรุปคำตอบ ----
     summary_lines = ["สรุปคำตอบของคุณนะครับ 👇"]
