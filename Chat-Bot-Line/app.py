@@ -288,7 +288,10 @@ def build_product_carousel(products):
             text=f"ราคา: {p['price']:,} บาท" if p.get("price") else "ราคาไม่ระบุ",
             thumbnail_image_url=p.get("image_url"),
             actions=[
-                URITemplateAction(label="ดูรายละเอียด", uri=p["url"])
+                PostbackAction(
+                    label="ดูรายละเอียด",
+                    data=f"view_product:{p.get('name','')}"
+                )
             ]
         )
         columns.append(col)
@@ -328,16 +331,30 @@ def log_user_action(user_id, action, data=None):
 @handler.add(PostbackEvent)
 def handle_postback(event):
     user_id = event.source.user_id
-    data = event.postback.data
+    data = event.postback.data or ""
 
     if data.startswith("view_product:"):
-        product_name = data.replace("view_product:", "")
-        log_user_action(user_id, "view_product", {"product_name": product_name})
+        product_name = data[len("view_product:"):]  # สิ่งที่เราส่งมา
+        # หา product จาก list ที่มีอยู่ (หรือจะไป query Neo4j ก็ได้)
+        product = next((p for p in products if (p.get("name") == product_name)), None)
 
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text=f"คุณกดดูรายละเอียดสินค้า: {product_name}")
-        )
+        # log ก่อน
+        log_user_action(user_id, "view_product", {
+            "product_name": product_name,
+            "url": (product.get("url") if product else None)
+        })
+
+        # ตอบกลับพร้อมลิงก์ถ้ามี
+        if product and product.get("url"):
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text=f"คุณเลือกดูสินค้า: {product_name}\n👉 {product['url']}")
+            )
+        else:
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text=f"คุณเลือกดูสินค้า: {product_name}\nขออภัย ไม่พบลิงก์สินค้า")
+            )
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
@@ -482,7 +499,7 @@ def handle_message(event):
                 TextSendMessage(text="นี่คือสินค้าขายดี 👇"),
                 build_product_carousel(best_sellers),
                 TextSendMessage(
-                    text="อยากเริ่มใหม่อีกครั้งไหมครับ? 😊",
+                    text="อยากเริ่มต้นใหม่อีกรอบไหมครับ? ✨ พิมพ์ 'เริ่มใหม่' แล้วไปกันต่อเลย!",
                     quick_reply=QuickReply(items=[
                         QuickReplyButton(action=MessageAction(label="🔄 เริ่มใหม่", text="เริ่มใหม่"))
                     ])
@@ -524,6 +541,21 @@ def handle_message(event):
     # ---- เก็บคำตอบ ----
     if not profile["finished"]:
         qid = profile["questions"][profile["current_q"]]["id"]
+
+        # --- ตรวจว่าคำตอบ valid ไหม ---
+        valid_answers = [btn.action.text for btn in quick_map.get(qid, [])]
+        special_cmds = ["แก้คำตอบ", "ข้าม", "สินค้าขายดี", "เริ่มใหม่"]
+
+        if message not in valid_answers and message not in special_cmds:
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(
+                    text=f"⛔ คำตอบไม่ถูกต้องครับ กรุณาเลือกจากตัวเลือกด้านล่าง\n{get_progress_text(profile['current_q']+1, len(profile['questions']))}\n{get_question_text(qid, [q for q in all_questions if q['id']==qid][0]['text'])}",
+                    quick_reply=QuickReply(items=quick_map.get(qid, []) + extra_buttons)
+                )
+            )
+            return
+
         profile["answers"][qid] = message
         log_user_action(user_id, "answer", {"question_id": qid, "answer": message})
 
@@ -611,7 +643,7 @@ def handle_message(event):
             TextSendMessage(text="นี่คือสินค้าที่เหมาะกับคุณ 👇"),
             carousel_msg,
             TextSendMessage(
-                text="อยากลองเลือกใหม่อีกครั้งไหมครับ? ✨",
+                text="อยากเริ่มต้นใหม่อีกรอบไหมครับ? ✨ พิมพ์ 'เริ่มใหม่' แล้วไปกันต่อเลย!",
                 quick_reply=QuickReply(items=[
                     QuickReplyButton(action=MessageAction(label="🔄 เริ่มใหม่", text="เริ่มใหม่"))
                 ])
